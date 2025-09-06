@@ -1,0 +1,440 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Complexity Measures — SVG Timeline (Offline)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --muted:#666; --pad:14px;
+  }
+  body{margin:0;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;background:var(--bg);color:#222}
+  header{display:flex;align-items:center;gap:12px;padding:16px;background:#1f3c88;color:#fff}
+  header h1{margin:0;font-size:18px}
+  .controls{display:flex;gap:8px;align-items:center;margin:12px;padding:0 16px;flex-wrap:wrap}
+  select,input{padding:8px;border-radius:6px;border:1px solid #ccc;background:#fff}
+  button{padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer}
+  .small-btn{padding:6px 8px;font-size:13px}
+  #legend{display:flex;gap:8px;align-items:center}
+  .legend-item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;background:#fff;border:1px solid #eee}
+  .dot{width:14px;height:14px;border-radius:3px;display:inline-block}
+  .timeline-wrap{border-top:1px solid #ddd;padding:12px;background:var(--panel);margin:12px;overflow-x:auto}
+  #svgTimeline{display:block;min-height:340px;width:100%;}
+  footer{padding:12px 16px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap}
+  .tooltip{position:fixed;pointer-events:none;background:#222;color:#fff;padding:8px;border-radius:6px;font-size:13px;max-width:360px;z-index:9999;box-shadow:0 6px 18px rgba(0,0,0,0.15);display:none}
+  .lane-label{font-size:13px;fill:#333;font-weight:600}
+  .axis-year{font-size:12px;fill:#333}
+  a.item-link{fill:#fff; text-decoration:underline; cursor:pointer}
+  .controls-block{display:flex;gap:8px;align-items:center}
+  @media (max-width:700px){ header{flex-direction:column;align-items:flex-start} .controls{gap:6px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Complexity Measures — Timeline (offline SVG)</h1>
+    <div style="font-size:13px;opacity:0.9">Entropy · Graph energy · Spectral measures · DSM · Space case studies — click items to open papers</div>
+  </div>
+  <div style="margin-left:auto;font-size:13px;opacity:0.9">© Rashika SN</div>
+</header>
+
+<div class="controls" role="region" aria-label="timeline controls">
+  <div class="controls-block">
+    <label class="label" style="font-weight:600">Category</label>
+    <select id="filterCategory">
+      <option value="all">All</option>
+      <option value="Foundations">Foundations</option>
+      <option value="Information">Information</option>
+      <option value="GraphSpectral">Graph / Spectral</option>
+      <option value="Algorithmic">Algorithmic / Compression</option>
+      <option value="Engineering">Engineering / DSM</option>
+      <option value="Modern">Modern / Applied</option>
+    </select>
+  </div>
+
+  <div class="controls-block" style="margin-left:8px">
+    <label style="font-weight:600">Search</label>
+    <input id="searchText" placeholder="title / author / measure" />
+  </div>
+
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+    <button id="zoomOut" class="small-btn">+</button>
+    <button id="zoomIn" class="small-btn">-</button>
+    <button id="fitScreen" class="small-btn">Fit</button>
+    <button id="resetBtn">Reset filters</button>
+  </div>
+</div>
+
+<div style="padding:0 16px">
+  <div id="legend" style="margin-bottom:12px">
+    <div class="legend-item"><span class="dot" style="background:#1f77b4"></span><span style="font-size:13px">Foundations</span></div>
+    <div class="legend-item"><span class="dot" style="background:#2ca02c"></span><span style="font-size:13px">Information</span></div>
+    <div class="legend-item"><span class="dot" style="background:#d62728"></span><span style="font-size:13px">Graph / Spectral</span></div>
+    <div class="legend-item"><span class="dot" style="background:#9467bd"></span><span style="font-size:13px">Algorithmic</span></div>
+    <div class="legend-item"><span class="dot" style="background:#8c564b"></span><span style="font-size:13px">Engineering/DSM</span></div>
+    <div class="legend-item"><span class="dot" style="background:#e377c2"></span><span style="font-size:13px">Modern/Applied</span></div>
+  </div>
+</div>
+
+<div class="timeline-wrap" id="timelineWrap">
+  <!-- SVG will be injected here -->
+  <svg id="svgTimeline" xmlns="http://www.w3.org/2000/svg" aria-label="Complexity timeline"></svg>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<footer>
+  <div style="font-size:13px;color:#555">Click marker or text to open the paper (new tab). Hover for details.</div>
+  <div style="font-size:13px;color:#777">Dataset curated by Rashika SN</div>
+</footer>
+
+<script>
+/* ------------------------
+   DATA (original dataset)
+   ------------------------ */
+const itemsData = [
+  {id:1, year:1736, start:'1736-01-01', title:'Solutio problematis ad geometriam situs pertinentis', group:'Foundations', authors:'Leonhard Euler', measure:'Graph theory (nodes/edges)', summary:'Königsberg bridges — origin of graph theory.', url:'https://scholarlycommons.pacific.edu/euler-works/53/'},
+  {id:2, year:1936, start:'1936-11-12', title:'On Computable Numbers', group:'Foundations', authors:'Alan M. Turing', measure:'Computability / Turing machines', summary:'Formalizes computation and decidability.', url:'https://www.turingarchive.org/browse.php/B/1'},
+  {id:3, year:1948, start:'1948-07-01', title:'A Mathematical Theory of Communication', group:'Information', authors:'Claude E. Shannon', measure:'Shannon entropy, mutual information', summary:'Foundational information theory paper.', url:'https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf'},
+  {id:4, year:1962, start:'1962-11-01', title:'The Architecture of Complexity', group:'Foundations', authors:'Herbert A. Simon', measure:'Hierarchy / near-decomposability', summary:'Modularity and hierarchy in complex systems.', url:'https://www.jstor.org/stable/168233'},
+  {id:5, year:1963, start:'1963-01-01', title:'Three approaches to the quantitative definition of information', group:'Algorithmic', authors:'A. N. Kolmogorov', measure:'Kolmogorov algorithmic complexity', summary:'Foundational algorithmic complexity ideas.', url:'https://link.springer.com/chapter/10.1007/978-1-4757-0436-8_14'},
+  {id:6, year:1967, start:'1967-01-01', title:'How Long Is the Coast of Britain?', group:'GraphSpectral', authors:'Benoît B. Mandelbrot', measure:'Fractal dimension', summary:'Fractal geometry and scaling measures.', url:'https://www.science.org/doi/10.1126/science.156.3775.636'},
+  {id:7, year:1973, start:'1973-01-01', title:'Algebraic Connectivity of Graphs', group:'GraphSpectral', authors:'Miroslav Fiedler', measure:'Laplacian eigenvalue (Fiedler value)', summary:'Spectral link to connectivity/robustness.', url:'https://dml.cz/bitstream/handle/10338.dmlcz/101168/CzechMathJ_23-1973-2_11.pdf'},
+  {id:8, year:1976, start:'1976-01-01', title:'A Universal Algorithm for Sequential Data Compression', group:'Algorithmic', authors:'A. Lempel & J. Ziv', measure:'Lempel–Ziv complexity', summary:'Practical compression and complexity estimator.', url:'https://ieeexplore.ieee.org/document/1055501'},
+  {id:9, year:1986, start:'1986-01-01', title:'Measures of complexity: excess entropy', group:'Information', authors:'Peter Grassberger', measure:'Excess entropy / predictive information', summary:'Information stored in past predicting future.', url:'https://link.springer.com/article/10.1007/BF01020049'},
+  {id:10, year:1988, start:'1988-01-01', title:'Logical Depth', group:'Algorithmic', authors:'Charles H. Bennett', measure:'Logical depth', summary:'Compute-time-based measure distinguishing deep structure.', url:'https://www.sciencedirect.com/science/article/pii/0022487189900548'},
+  {id:11, year:1989, start:'1989-07-10', title:'Inferring Statistical Complexity (ε-machines)', group:'Information', authors:'J. P. Crutchfield & K. Young', measure:'Statistical complexity (C_μ)', summary:'ε-machine framework and minimal predictive models.', url:'https://its.caltech.edu/~theory/crutchfieldyoung.pdf'},
+  {id:12, year:1997, start:'1997-01-01', title:'Spectral Graph Theory (book)', group:'GraphSpectral', authors:'Fan R. K. Chung', measure:'Spectral methods', summary:'Comprehensive spectral graph theory text.', url:'https://bookstore.ams.org/cbms-92'},
+  {id:13, year:1998, start:'1998-05-15', title:'Collective dynamics of “small-world” networks', group:'GraphSpectral', authors:'D. J. Watts & S. H. Strogatz', measure:'Small-world, clustering, path length', summary:'Small-world property in real networks.', url:'https://www.nature.com/articles/30918'},
+  {id:14, year:1999, start:'1999-10-01', title:'Emergence of scaling in random networks', group:'GraphSpectral', authors:'A.-L. Barabási & R. Albert', measure:'Scale-free networks', summary:'Preferential attachment and heavy-tail degrees.', url:'https://science.sciencemag.org/content/286/5439/509'},
+  {id:15, year:2012, start:'2012-03-14', title:'Entropy and the Complexity of Graphs Revisited', group:'GraphSpectral', authors:'M. Dehmer & A. Mowshowitz', measure:'Graph entropies family', summary:'Survey/taxonomy of graph entropy measures.', url:'https://www.mdpi.com/1099-4300/14/3/559'},
+  {id:16, year:2016, start:'2016-08-16', title:'Matrix Energy as a Measure of Topological Complexity (arXiv)', group:'Engineering', authors:'Kaushik Sinha & Olivier L. de Weck', measure:'Matrix energy / topological complexity', summary:'Proposes matrix energy (sum singular values) for topological complexity.', url:'https://arxiv.org/abs/1608.08456'},
+  {id:17, year:2016, start:'2016-09-01', title:'Empirical validation of structural complexity metric', group:'Engineering', authors:'K. Sinha & O. L. de Weck', measure:'Matrix energy + validation', summary:'Empirical correlation between structural complexity and development effort.', url:'https://onlinelibrary.wiley.com/doi/10.1002/sys.21356'},
+  {id:18, year:2017, start:'2017-03-01', title:'Graph Energies: survey', group:'GraphSpectral', authors:'Ivan Gutman & Boris Furtula', measure:'Graph energy survey', summary:'Comprehensive survey and bibliography for graph energy.', url:'https://www.sciencedirect.com/science/article/pii/S0012365X15009217'},
+  {id:19, year:2019, start:'2019-01-01', title:'DSM for Space System Design (case study)', group:'Engineering', authors:'Tran et al.', measure:'Design Structure Matrix (DSM)', summary:'DSM applied to payloads and interface coupling in space systems.', url:'https://www.designsociety.org/publication/42452/using_the_design_structure_matrix_for_space_system_design'},
+  {id:20, year:2023, start:'2023-01-01', title:'DSM for CubeSats (case study)', group:'Engineering', authors:'Nasim Chitsaz et al.', measure:'DSM applied to small spacecraft', summary:'DSM applied to CubeSat design assurance and management.', url:'https://www.researchgate.net/publication/371063284_Design_Structure_Matrix_For_Design_ASSURANCE_AND_MANAGEMENT_The_Case_of_CubeSats'},
+  {id:21, year:2024, start:'2024-01-01', title:'Method for Measuring Resilience Using Network Theory and Graph Energy', group:'Modern', authors:'C. M. Edwards, R. R. Nilchiani, I. M. Miller', measure:'Graph energy for resilience/tipping points', summary:'Integrates graph energy into resilience indices; tested on multiple networks.', url:'https://doi.org/10.1109/OJSE.2024.3366939'},
+  {id:22, year:2024, start:'2024-07-01', title:'Impact of graph energy on resilience (Systems Eng.)', group:'Modern', authors:'Edwards, Nilchiani, Miller', measure:'Graph energy & tipping points', summary:'Systems Engineering paper on graph energy correction to predict tipping points.', url:'https://doi.org/10.1002/sys.21749'}
+];
+
+/* ------------------------
+   Config / drawing params + zoom
+   ------------------------ */
+const groups = ['Foundations','Information','GraphSpectral','Algorithmic','Engineering','Modern'];
+const groupColors = {
+  Foundations:'#1f77b4',
+  Information:'#2ca02c',
+  GraphSpectral:'#d62728',
+  Algorithmic:'#9467bd',
+  Engineering:'#8c564b',
+  Modern:'#e377c2'
+};
+
+const wrap = document.getElementById('timelineWrap');
+const svg = document.getElementById('svgTimeline');
+const tooltip = document.getElementById('tooltip');
+const filterCategory = document.getElementById('filterCategory');
+const searchText = document.getElementById('searchText');
+const zoomInBtn = document.getElementById('zoomIn');
+const zoomOutBtn = document.getElementById('zoomOut');
+const fitScreenBtn = document.getElementById('fitScreen');
+const resetBtn = document.getElementById('resetBtn');
+
+let padding = {left:120, right:60, top:20, bottom:70};
+let laneBaseHeight = 110;      // base vertical space per lane
+let markerR = 8;
+let truncatedLabelLen = 48;    // characters shown on label
+
+// zoom state: 1 = fit-to-screen; >1 = zoomed in; <1 = zoomed out
+let zoomScale = 1.0;
+const ZOOM_STEP = 1.25;
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 8.0;
+
+function parseYear(item){
+  if(item.year) return +item.year;
+  if(item.start){
+    const y = parseInt(item.start.substr(0,4),10);
+    if(!isNaN(y)) return y;
+  }
+  return NaN;
+}
+
+function computeRange(data){
+  const years = data.map(parseYear).filter(y=>!isNaN(y));
+  let minY = Math.min(...years);
+  let maxY = Math.max(...years);
+  if(!isFinite(minY)) minY = 1700;
+  if(!isFinite(maxY)) maxY = 2030;
+  if(maxY < 2030) maxY = 2030;
+  // add small padding
+  minY = minY - 3;
+  return {minY, maxY};
+}
+
+/* ------------------------
+   Main draw (respects zoomScale)
+   ------------------------ */
+function buildSvg(filteredItems){
+  const range = computeRange(filteredItems.length ? filteredItems : itemsData);
+  const spanYears = Math.max(1, range.maxY - range.minY);
+
+  // compute base spacing that fits container; then scale by zoomScale
+  const containerWidth = wrap.clientWidth || document.documentElement.clientWidth;
+  const baseAvailableWidth = Math.max(320, containerWidth - padding.left - padding.right);
+  const baseYearSpacing = baseAvailableWidth / spanYears;
+  const effectiveYearSpacing = baseYearSpacing * zoomScale;
+
+  // svg width: either container width (if fits) or expanded width to allow horizontal scroll when zoomed
+  const neededWidth = Math.max(containerWidth, Math.round(padding.left + padding.right + spanYears * effectiveYearSpacing));
+  const width = neededWidth;
+  const lanesCount = groups.length;
+  const laneHeight = laneBaseHeight;
+  const height = padding.top + padding.bottom + lanesCount * laneHeight;
+
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.innerHTML = ''; // clear
+
+  // BACKGROUND
+  const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  bg.setAttribute('x',0); bg.setAttribute('y',0); bg.setAttribute('width',width); bg.setAttribute('height',height);
+  bg.setAttribute('fill','#fff');
+  svg.appendChild(bg);
+
+  // DECADE GRIDLINES (behind everything)
+  for(let y = Math.ceil(range.minY/10)*10; y <= range.maxY; y+=10){
+    const x = padding.left + (y - range.minY) * effectiveYearSpacing;
+    const grid = document.createElementNS('http://www.w3.org/2000/svg','line');
+    grid.setAttribute('x1', x);
+    grid.setAttribute('x2', x);
+    grid.setAttribute('y1', padding.top - 4);
+    grid.setAttribute('y2', height - padding.bottom + 4);
+    grid.setAttribute('stroke', '#e6e6e6');
+    grid.setAttribute('stroke-dasharray','3,3');
+    svg.appendChild(grid);
+  }
+
+  // LANE LABELS + HORIZONTAL LINES
+  groups.forEach((g,i)=>{
+    const yTop = padding.top + i*laneHeight;
+    const tx = document.createElementNS('http://www.w3.org/2000/svg','text');
+    tx.setAttribute('x',12);
+    tx.setAttribute('y', yTop + laneHeight/2 + 6);
+    tx.setAttribute('class','lane-label');
+    tx.textContent = g.replace(/GraphSpectral/, 'Graph / Spectral').replace(/Algorithmic/,'Algorithmic / Compression');
+    svg.appendChild(tx);
+
+    const hr = document.createElementNS('http://www.w3.org/2000/svg','line');
+    hr.setAttribute('x1', padding.left);
+    hr.setAttribute('x2', width - padding.right);
+    hr.setAttribute('y1', yTop + laneHeight);
+    hr.setAttribute('y2', yTop + laneHeight);
+    hr.setAttribute('stroke','#e7e7e7');
+    svg.appendChild(hr);
+  });
+
+  // AXIS baseline
+  const axisY = padding.top + lanesCount * laneHeight + 20;
+  const axis = document.createElementNS('http://www.w3.org/2000/svg','line');
+  axis.setAttribute('x1', padding.left);
+  axis.setAttribute('x2', width - padding.right);
+  axis.setAttribute('y1', axisY);
+  axis.setAttribute('y2', axisY);
+  axis.setAttribute('stroke','#333');
+  axis.setAttribute('stroke-width',1);
+  svg.appendChild(axis);
+
+  // YEAR TICKS & LABELS (every 10 years)
+  const tickStep = 10;
+  for(let y = Math.ceil(range.minY/tickStep)*tickStep; y <= range.maxY; y+=tickStep){
+    const x = padding.left + (y - range.minY) * effectiveYearSpacing;
+    const t = document.createElementNS('http://www.w3.org/2000/svg','line');
+    t.setAttribute('x1',x); t.setAttribute('x2',x);
+    t.setAttribute('y1', axisY); t.setAttribute('y2', axisY + 8);
+    t.setAttribute('stroke','#666'); svg.appendChild(t);
+
+    const ly = document.createElementNS('http://www.w3.org/2000/svg','text');
+    ly.setAttribute('x', x); ly.setAttribute('y', axisY + 26);
+    ly.setAttribute('class','axis-year');
+    ly.setAttribute('text-anchor','middle');
+    ly.textContent = String(y);
+    svg.appendChild(ly);
+  }
+
+  // PLACE ITEMS with collision avoidance for labels
+  const labelBoxesByLane = {};
+  const makeLabelText = s => {
+    if(!s) return '';
+    if(s.length <= truncatedLabelLen) return s;
+    return s.slice(0, truncatedLabelLen-1) + '…';
+  };
+
+  filteredItems.forEach(it => {
+    const year = parseYear(it);
+    if(isNaN(year)) return;
+    const laneIndex = groups.indexOf(it.group);
+    if(laneIndex < 0) return;
+    const laneTop = padding.top + laneIndex * laneHeight;
+    const laneMid = laneTop + laneHeight/2;
+
+    // x coordinate
+    const x = padding.left + (year - range.minY) * effectiveYearSpacing;
+
+    // Prepare label measurement estimate
+    const labelText = makeLabelText(it.title || '');
+    const charWidthEstimate = 7.0; // px per character approx (safe)
+    const labelWidth = Math.min(labelText.length * charWidthEstimate, Math.max(90, width/3));
+
+    // collision resolution per lane (try offsets)
+    if(!labelBoxesByLane[it.group]) labelBoxesByLane[it.group] = [];
+    const boxes = labelBoxesByLane[it.group];
+    const offsets = [0,-18,18,-36,36,-54,54,-72,72,-90,90];
+    let chosenOffset = 0;
+    for (let offset of offsets){
+      const box = { x1: x, x2: x + labelWidth, y: laneMid + offset };
+      const coll = boxes.some(b => Math.abs(b.y - box.y) < 14 && !(box.x2 < b.x1 || box.x1 > b.x2));
+      if(!coll){ chosenOffset = offset; boxes.push(box); break; }
+    }
+    const cy = laneMid + chosenOffset;
+
+    // Create clickable anchor that contains circle + label
+    const a = document.createElementNS('http://www.w3.org/2000/svg','a');
+    a.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href', it.url || '#');
+    a.setAttribute('target','_blank');
+    a.classList.add('item-link');
+
+    // circle (marker)
+    const circ = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circ.setAttribute('cx', x);
+    circ.setAttribute('cy', cy);
+    circ.setAttribute('r', markerR);
+    circ.setAttribute('fill', groupColors[it.group] || '#999');
+    circ.setAttribute('stroke', '#111');
+    circ.setAttribute('stroke-opacity', '0.08');
+    circ.setAttribute('cursor', 'pointer');
+    a.appendChild(circ);
+
+    // label placement: prefer RIGHT; if it would overflow to the right, place LEFT if left space exists
+    const spaceRight = width - padding.right - (x + markerR + 10);
+    const spaceLeft = (x - markerR - 10) - padding.left;
+    let labelX, anchor;
+    if(spaceRight >= labelWidth){
+      labelX = x + markerR + 10;
+      anchor = 'start';
+    } else if(spaceLeft >= labelWidth){
+      labelX = x - markerR - 10;
+      anchor = 'end';
+    } else {
+      // fallback: prefer right and let it clip/overflow horizontally (user can zoom/pan)
+      labelX = x + markerR + 10;
+      anchor = 'start';
+    }
+
+    const lab = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lab.setAttribute('x', labelX);
+    lab.setAttribute('y', cy + 4);
+    lab.setAttribute('text-anchor', anchor);
+    lab.setAttribute('fill', '#111');
+    lab.setAttribute('font-size', '12px');
+    lab.setAttribute('font-weight', '600');
+    lab.setAttribute('cursor', 'pointer');
+    lab.textContent = labelText;
+    a.appendChild(lab);
+
+    // tooltip events
+    a.addEventListener('mouseenter', (ev)=>{
+      showTooltip(it.title, it.authors, it.measure, it.summary, ev.clientX, ev.clientY);
+    });
+    a.addEventListener('mousemove', (ev)=>{
+      moveTooltip(ev.clientX, ev.clientY);
+    });
+    a.addEventListener('mouseleave', hideTooltip);
+
+    svg.appendChild(a);
+  });
+}
+
+/* ------------------------
+   Tooltip helpers
+   ------------------------ */
+function showTooltip(title, authors, measure, summary, x, y){
+  tooltip.style.left = (x + 12) + 'px';
+  tooltip.style.top  = (y + 12) + 'px';
+  tooltip.style.display = 'block';
+  tooltip.innerHTML = `<strong style="font-size:13px">${escapeHtml(title)}</strong>
+    <div style="font-size:12px;margin-top:6px"><em>${escapeHtml(authors)}</em></div>
+    <div style="font-size:12px;margin-top:6px"><strong>Measure:</strong> ${escapeHtml(measure)}</div>
+    <div style="font-size:12px;margin-top:6px">${escapeHtml(summary)}</div>
+    <div style="margin-top:8px;font-size:12px;color:#ddd">Click to open paper</div>`;
+}
+function moveTooltip(x,y){ tooltip.style.left = (x + 12) + 'px'; tooltip.style.top = (y + 12) + 'px'; }
+function hideTooltip(){ tooltip.style.display = 'none'; }
+function escapeHtml(s){ if(!s) return ''; return (''+s).replace(/[&<>"']/g, function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+
+/* ------------------------
+   Filtering / UI + Zoom handlers
+   ------------------------ */
+function getFilteredItems(){
+  const cat = filterCategory.value;
+  const q = (searchText.value || '').trim().toLowerCase();
+  return itemsData.filter(it=>{
+    if(cat !== 'all' && it.group !== cat) return false;
+    if(!q) return true;
+    const text = (it.title + ' ' + it.authors + ' ' + it.measure + ' ' + it.summary + ' ' + (it.group||'')).toLowerCase();
+    return text.indexOf(q) !== -1;
+  });
+}
+
+function redraw(){
+  const filtered = getFilteredItems();
+  buildSvg(filtered);
+}
+
+// zoom controls
+function zoomIn(){
+  zoomScale = Math.min(ZOOM_MAX, zoomScale * ZOOM_STEP);
+  redraw();
+}
+function zoomOut(){
+  zoomScale = Math.max(ZOOM_MIN, zoomScale / ZOOM_STEP);
+  redraw();
+}
+function fitToScreen(){
+  zoomScale = 1.0;
+  redraw();
+  // scroll left to start
+  wrap.scrollLeft = 0;
+}
+
+/* ------------------------
+   Event wiring
+   ------------------------ */
+filterCategory.addEventListener('change', ()=>{ redraw(); });
+searchText.addEventListener('input', ()=>{ setTimeout(redraw, 120); });
+zoomInBtn.addEventListener('click', zoomIn);
+zoomOutBtn.addEventListener('click', zoomOut);
+fitScreenBtn.addEventListener('click', fitToScreen);
+resetBtn.addEventListener('click', ()=>{
+  filterCategory.value = 'all';
+  searchText.value = '';
+  fitToScreen();
+  redraw();
+});
+
+// initial draw & responsive
+function initialDraw(){ fitToScreen(); redraw(); }
+initialDraw();
+
+// responsive: rebuild when container width changes
+let resizeTimer = null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(()=>{ redraw(); }, 180);
+});
+</script>
+
+</body>
+</html>
